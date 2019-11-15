@@ -1,0 +1,153 @@
+---
+title: "Lab-5"
+author: "Karthikcharan Suresh"
+date: "11/13/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+#### 1
+
+```{r}
+data<-read.table('diabetes.txt',header=TRUE)
+head(data)
+```
+
+#### 2
+
+```{r}
+data[data==""]<-NA
+data<-droplevels(data, "")
+head(data)
+```
+
+#### 3
+
+```{r}
+vars<-names(data) %in% c("id", "bp.2s", "bp.2d")
+diabetes_reduced<-data[!vars]
+head(diabetes_reduced)
+```
+
+##### 4
+
+```{r}
+index.na=apply(is.na(diabetes_reduced), 1, any)
+diabetes_clean<-diabetes_reduced[!index.na,]
+```
+
+#### 5
+
+```{r}
+dim(diabetes_clean)
+```
+there are 366 rows and 16 columns from looking at the dimensions of the dataset
+
+### Exploring and transforming data
+
+#### 6
+```{r}
+library(ggplot2)
+ggplot(data = diabetes_clean ,aes(x = glyhb))+ geom_histogram(binwidth = .25) + 
+          ggtitle("Histogram of Glycosolated Hemoglobin, Showing Right Skewness") +
+          xlab("Glycosolated Hemoglobin")
+```
+#We can create a log of `glyhb` to fix the righ skewness, this will fix the skewness but the histogram is hard to interpret. So we can transform the variable to visualize better.
+
+
+7.
+```{r}
+diabetes_clean$glyhb_star = log(diabetes_clean$glyhb)
+library(ggplot2)
+ggplot(diabetes_clean, aes(glyhb_star))+geom_histogram(bins=30)
+```
+
+8. 
+```{r}
+library(dplyr)
+diabetes_clean %>% group_by(weight) %>% summarise(mean.glyhb = mean(glyhb_star))
+diabetes_clean %>% group_by(age) %>% summarise(mean.glyhb = mean(glyhb_star))
+diabetes_clean %>% group_by(gender) %>% summarise(mean.glyhb = mean(glyhb_star))
+```
+
+10.
+```{r}
+diabetes_clean %>% group_by(frame,location) %>% summarise (mean.glyhb_star= mean(glyhb_star)) %>%
+  ggplot(aes(x = frame, y = mean.glyhb_star, color=`location`))+
+  geom_point(size=3.5)+
+  coord_flip()+
+  labs(title = 'Mean Log of Glyhb by Body Frame per Location', y = 'Mean Log of Glyhb', x='Frame Size')
+```
+
+11. 
+```{r}
+ggplot(diabetes_clean,aes(y=glyhb_star,x=ratio,alpha=0.5)) + geom_point() +  geom_smooth()+labs(title = 'Log of Glyhb vs. Ratio',
+                                                                                 x='Ratio',
+                                                                                 y='Log of Glyhb')
+ggplot(diabetes_clean,aes(y=glyhb_star,x=bp.1s,alpha=0.5)) + geom_point() + geom_smooth()+ labs(title = 'Log of Glyhb vs. Bp.1s',
+                                                                                 x='Bp.1s',
+                                                                                 y='Log of Glyhb')
+ggplot(diabetes_clean,aes(y=glyhb_star,x=age,alpha=0.5)) + geom_point() + geom_smooth()+ labs(title = 'Log of Glyhb vs. Age',
+                                                                                 x='Age',
+                                                                                 y='Log of Glyhb')
+ggplot(diabetes_clean,aes(y=glyhb_star,x=hip,alpha=0.5)) + geom_point() + geom_smooth()+ labs(title = 'Log of Glyhb vs. Hip Size',
+                                                                                 x='Hip Size',
+                                                                                 y='Log of Glyhb')
+ggplot(diabetes_clean,aes(y=glyhb_star,x=weight,alpha=0.5)) + geom_point() + geom_smooth()+ labs(title = 'Log of Glyhb vs. Weight',
+                                                                                 x='Weight (lbs)',
+                                                                                 y='Log of Glyhb')
+ggplot(diabetes_clean,aes(y=glyhb_star,x=gender)) + geom_violin(scale="area") +  labs(title = 'Log of Glyhb by Gender',x='Gender',y='Log of Glyhb')
+```
+
+12.
+```{r}
+#1 added a geom_smooth to see the trends easily
+ggplot(diabetes_clean,aes(y=hip,x=waist,alpha=0.5)) + geom_point() + geom_smooth() + facet_wrap(~frame) + labs(title="Hip Size vs. Waist Size by Frame Size", x= 'Waist Size', y='Hip Size')
+#2 made a hex chart to make it easy too see the values easily.
+ggplot(diabetes_clean,aes(y=hip,x=waist)) + geom_hex() + facet_wrap(~frame) + labs(title="Hip Size vs. Waist Size by Frame Size", x= 'Waist Size', y='Hip Size')
+  ```
+
+Messy Data
+
+13.The spread function is used to spread pairs across the columns, and the gather function takes the multiple columns and makes it into pairs.
+
+14.Both the functions gather and spread are complimentary functions, as they do they opposite tasks.
+
+
+### Regression Models
+
+
+15.
+```{r}
+fit = lm(glyhb_star ~stab.glu + age + waist + ratio+ factor(frame),data=diabetes_clean)
+ summary(fit)
+```
+The F-test statistic is 77.49 with a p-value of <.001 tells us that the model is useful for predicting Glycosolated Hemoglobin with the combination of the input variables. Also the R-square adjusted is .557 which is 55.7% of the variability. Since the last two variable doesnt help predicting Glycosolated Hemoglobin we can remove that!
+
+16.
+With every unit increase in glyhb_sta, there is an predicted increase of 0.0035 increase in stab.glu, 0.0034 increase in age, 0.0048 increase in waist, 0.0219 increase in ratio, 0.0309 increase in medium frame, and a 0.0132 increase in small frame. 
+
+
+17.
+```{r}
+fit$fitted.values
+# this is the estimated fitted values when the linear model "fit" is used
+answer = 0.0035182*90 + 0.0033632*35 + 0.0047925*30 + 0.0219341*5.1 + 0.0131840 + 0.8330897
+print(answer)
+#1.536263 is the estimated mean value of glyhb_star for a person
+```
+
+
+18. 
+inference is is using a model learn and look at the forms and trends in a data. Prediction is using the model to find an estimate the outputs from the model.
+
+19. linear regression is useful when the variables are linear, but it wont work in all cases since most of the real lofe datas are not linear. KNN is useful for multiple regression or non linear regression, but it needs an accurate K value.
+
+###Reflection
+
+
+20.
+Taking many data science and statistics class has definitely improved my knowledge in data science and with regression, plotting and visualizng. Data science is huge in today's world there is data every where and there is a lot of good things that can be done with the data. Learning R has definitely improve my knowledge in the data science field and using ggplot makes things more eaier. I have definitely learned a lot in this class that can help me in the future.
+
